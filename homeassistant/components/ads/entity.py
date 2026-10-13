@@ -5,12 +5,41 @@ from asyncio import timeout
 import logging
 from typing import Any, override
 
-from homeassistant.helpers.entity import Entity
+import probatio
 
-from .const import STATE_KEY_STATE
+from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers.entity import Entity
+from homeassistant.helpers.typing import ConfigType
+
+from .const import CONF_ADS_CLIENT, DATA_ADS, DEFAULT_ADS_CLIENT, STATE_KEY_STATE
 from .hub import AdsHub
 
 _LOGGER = logging.getLogger(__name__)
+
+ADS_CLIENT_SCHEMA = {probatio.Optional(CONF_ADS_CLIENT): cv.slug}
+
+
+def get_ads_hub(hass: HomeAssistant, config: ConfigType) -> AdsHub:
+    """Get the ADS hub selected by an entity or service configuration."""
+    ads_hubs = hass.data[DATA_ADS]
+    client_id = config.get(CONF_ADS_CLIENT)
+
+    if client_id is None:
+        if DEFAULT_ADS_CLIENT in ads_hubs:
+            client_id = DEFAULT_ADS_CLIENT
+        elif len(ads_hubs) == 1:
+            return next(iter(ads_hubs.values()))
+        else:
+            raise HomeAssistantError(
+                "The ads_client field is required when multiple ADS clients are configured"
+            )
+
+    if client_id not in ads_hubs:
+        raise HomeAssistantError(f"ADS client {client_id!r} is not configured")
+
+    return ads_hubs[client_id]
 
 
 class AdsEntity(Entity):
@@ -25,7 +54,7 @@ class AdsEntity(Entity):
         self._ads_hub = ads_hub
         self._ads_var = ads_var
         self._event: asyncio.Event | None = None
-        self._attr_unique_id = ads_var
+        self._attr_unique_id = ads_hub.entity_unique_id(ads_var)
         self._attr_name = name
 
     async def async_initialize_device(

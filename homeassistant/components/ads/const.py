@@ -12,9 +12,12 @@ if TYPE_CHECKING:
 
 DOMAIN = "ads"
 
-DATA_ADS: HassKey[AdsHub] = HassKey(DOMAIN)
+DATA_ADS: HassKey[dict[str, AdsHub]] = HassKey(DOMAIN)
 
+CONF_ADS_CLIENT = "ads_client"
+CONF_ADS_CLIENTS = "clients"
 CONF_ADS_VAR = "adsvar"
+DEFAULT_ADS_CLIENT = "default"
 
 STATE_KEY_STATE = "state"
 

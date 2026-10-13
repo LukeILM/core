@@ -2,6 +2,9 @@
 
 write_data_by_name:
   fields:
+    ads_client:
+      selector:
+        text:
     adsvar:
       required: true
       example: ".global_var"

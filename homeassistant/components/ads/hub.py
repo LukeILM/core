@@ -8,6 +8,8 @@ import threading
 
 import pyads
 
+from .const import DEFAULT_ADS_CLIENT
+
 _LOGGER = logging.getLogger(__name__)
 
 # Tuple to hold data needed for notification
@@ -19,15 +21,22 @@ NotificationItem = namedtuple(  # noqa: PYI024
 class AdsHub:
     """Representation of an ADS connection."""
 
-    def __init__(self, ads_client):
+    def __init__(self, ads_client, client_id: str = DEFAULT_ADS_CLIENT) -> None:
         """Initialize the ADS hub."""
         self._client = ads_client
+        self._client_id = client_id
         self._client.open()
 
         # All ADS devices are registered here
-        self._devices = []
-        self._notification_items = {}
+        self._devices: list[object] = []
+        self._notification_items: dict[int, NotificationItem] = {}
         self._lock = threading.Lock()
+
+    def entity_unique_id(self, ads_var: str) -> str:
+        """Return an entity ID scoped to this client when it is not the default."""
+        if self._client_id == DEFAULT_ADS_CLIENT:
+            return ads_var
+        return f"{self._client_id}_{ads_var}"
 
     def shutdown(self, *args, **kwargs):
         """Shutdown ADS connection."""

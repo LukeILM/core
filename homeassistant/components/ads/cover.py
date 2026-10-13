@@ -19,8 +19,8 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 
-from .const import CONF_ADS_VAR, DATA_ADS, STATE_KEY_STATE
-from .entity import AdsEntity
+from .const import CONF_ADS_VAR, STATE_KEY_STATE
+from .entity import ADS_CLIENT_SCHEMA, AdsEntity, get_ads_hub
 from .hub import AdsHub
 
 DEFAULT_NAME = "ADS Cover"
@@ -44,7 +44,7 @@ PLATFORM_SCHEMA = COVER_PLATFORM_SCHEMA.extend(
         probatio.Optional(CONF_NAME, default=DEFAULT_NAME): cv.string,
         probatio.Optional(CONF_DEVICE_CLASS): DEVICE_CLASSES_SCHEMA,
     }
-)
+).extend(ADS_CLIENT_SCHEMA)
 
 
 def setup_platform(
@@ -54,7 +54,7 @@ def setup_platform(
     discovery_info: DiscoveryInfoType | None = None,
 ) -> None:
     """Set up the cover platform for ADS."""
-    ads_hub = hass.data[DATA_ADS]
+    ads_hub = get_ads_hub(hass, config)
 
     ads_var_is_closed: str = config[CONF_ADS_VAR]
     ads_var_position: str | None = config.get(CONF_ADS_VAR_POSITION)

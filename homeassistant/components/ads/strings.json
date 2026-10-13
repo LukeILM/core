@@ -3,6 +3,10 @@
     "write_data_by_name": {
       "description": "Write a value to the connected ADS device.",
       "fields": {
+        "ads_client": {
+          "description": "The ADS client to use.",
+          "name": "ADS client"
+        },
         "adstype": {
           "description": "The data type of the variable to write to.",
           "name": "ADS type"

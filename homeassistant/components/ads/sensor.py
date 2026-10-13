@@ -24,11 +24,10 @@ from .const import (
     CONF_ADS_FACTOR,
     CONF_ADS_TYPE,
     CONF_ADS_VAR,
-    DATA_ADS,
     STATE_KEY_STATE,
     AdsType,
 )
-from .entity import AdsEntity
+from .entity import ADS_CLIENT_SCHEMA, AdsEntity, get_ads_hub
 from .hub import AdsHub
 
 DEFAULT_NAME = "ADS sensor"
@@ -61,7 +60,7 @@ PLATFORM_SCHEMA = SENSOR_PLATFORM_SCHEMA.extend(
         probatio.Optional(CONF_STATE_CLASS): SENSOR_STATE_CLASSES_SCHEMA,
         probatio.Optional(CONF_UNIT_OF_MEASUREMENT): cv.string,
     }
-)
+).extend(ADS_CLIENT_SCHEMA)
 
 
 def setup_platform(
@@ -71,7 +70,7 @@ def setup_platform(
     discovery_info: DiscoveryInfoType | None = None,
 ) -> None:
     """Set up an ADS sensor device."""
-    ads_hub = hass.data[DATA_ADS]
+    ads_hub = get_ads_hub(hass, config)
 
     ads_var: str = config[CONF_ADS_VAR]
     ads_type: AdsType = config[CONF_ADS_TYPE]

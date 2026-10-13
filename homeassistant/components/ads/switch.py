@@ -15,8 +15,8 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 
-from .const import CONF_ADS_VAR, DATA_ADS, STATE_KEY_STATE
-from .entity import AdsEntity
+from .const import CONF_ADS_VAR, STATE_KEY_STATE
+from .entity import ADS_CLIENT_SCHEMA, AdsEntity, get_ads_hub
 
 DEFAULT_NAME = "ADS Switch"
 
@@ -25,7 +25,7 @@ PLATFORM_SCHEMA = SWITCH_PLATFORM_SCHEMA.extend(
         probatio.Required(CONF_ADS_VAR): cv.string,
         probatio.Optional(CONF_NAME, default=DEFAULT_NAME): cv.string,
     }
-)
+).extend(ADS_CLIENT_SCHEMA)
 
 
 def setup_platform(
@@ -35,7 +35,7 @@ def setup_platform(
     discovery_info: DiscoveryInfoType | None = None,
 ) -> None:
     """Set up switch platform for ADS."""
-    ads_hub = hass.data[DATA_ADS]
+    ads_hub = get_ads_hub(hass, config)
 
     name: str = config[CONF_NAME]
     ads_var: str = config[CONF_ADS_VAR]

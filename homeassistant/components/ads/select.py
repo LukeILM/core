@@ -15,8 +15,8 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 
-from .const import CONF_ADS_VAR, DATA_ADS
-from .entity import AdsEntity
+from .const import CONF_ADS_VAR
+from .entity import ADS_CLIENT_SCHEMA, AdsEntity, get_ads_hub
 from .hub import AdsHub
 
 DEFAULT_NAME = "ADS select"
@@ -29,7 +29,7 @@ PLATFORM_SCHEMA = SELECT_PLATFORM_SCHEMA.extend(
             probatio.EnsureList(), [cv.string]
         ),
     }
-)
+).extend(ADS_CLIENT_SCHEMA)
 
 
 def setup_platform(
@@ -39,7 +39,7 @@ def setup_platform(
     discovery_info: DiscoveryInfoType | None = None,
 ) -> None:
     """Set up an ADS select device."""
-    ads_hub = hass.data[DATA_ADS]
+    ads_hub = get_ads_hub(hass, config)
 
     ads_var: str = config[CONF_ADS_VAR]
     name: str = config[CONF_NAME]
