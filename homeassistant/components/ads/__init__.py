@@ -1,5 +1,7 @@
 """Support for Automation Device Specification (ADS)."""
 
+from datetime import timedelta
+from functools import partial
 import logging
 
 import probatio
@@ -13,6 +15,7 @@ from homeassistant.const import (
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.typing import ConfigType
 
 from .const import CONF_ADS_CLIENTS, DATA_ADS, DEFAULT_ADS_CLIENT, DOMAIN
@@ -80,5 +83,11 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     hass.data[DATA_ADS] = ads_hubs
     for ads in ads_hubs.values():
         hass.bus.async_listen(EVENT_HOMEASSISTANT_STOP, ads.shutdown)
+        async_track_time_interval(
+            hass,
+            partial(ads.async_check_connection, hass),
+            timedelta(seconds=10),
+            cancel_on_shutdown=True,
+        )
 
     return True

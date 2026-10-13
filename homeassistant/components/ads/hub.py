@@ -1,12 +1,18 @@
 """Support for Automation Device Specification (ADS)."""
 
 from collections import namedtuple
+from collections.abc import Callable
+from contextlib import suppress
 import ctypes
+from datetime import datetime
 import logging
 import struct
 import threading
+from typing import Any
 
 import pyads
+
+from homeassistant.core import HomeAssistant
 
 from .const import DEFAULT_ADS_CLIENT
 
@@ -16,6 +22,7 @@ _LOGGER = logging.getLogger(__name__)
 NotificationItem = namedtuple(  # noqa: PYI024
     "NotificationItem", "hnotify huser name plc_datatype callback"
 )
+type NotificationSubscription = tuple[str, type, Callable[[str, Any], None]]
 
 
 class AdsHub:
@@ -30,6 +37,9 @@ class AdsHub:
         # All ADS devices are registered here
         self._devices: list[object] = []
         self._notification_items: dict[int, NotificationItem] = {}
+        self._notification_subscriptions: list[NotificationSubscription] = []
+        self._pending_subscriptions: list[NotificationSubscription] = []
+        self._last_state: tuple[int, int] | None = None
         self._lock = threading.Lock()
 
     def entity_unique_id(self, ads_var: str) -> str:
@@ -42,22 +52,23 @@ class AdsHub:
         """Shutdown ADS connection."""
 
         _LOGGER.debug("Shutting down ADS")
-        for notification_item in self._notification_items.values():
-            _LOGGER.debug(
-                "Deleting device notification %d, %d",
-                notification_item.hnotify,
-                notification_item.huser,
-            )
-            try:
-                self._client.del_device_notification(
-                    notification_item.hnotify, notification_item.huser
+        with self._lock:
+            for notification_item in self._notification_items.values():
+                _LOGGER.debug(
+                    "Deleting device notification %d, %d",
+                    notification_item.hnotify,
+                    notification_item.huser,
                 )
+                try:
+                    self._client.del_device_notification(
+                        notification_item.hnotify, notification_item.huser
+                    )
+                except pyads.ADSError as err:
+                    _LOGGER.error(err)
+            try:
+                self._client.close()
             except pyads.ADSError as err:
                 _LOGGER.error(err)
-        try:
-            self._client.close()
-        except pyads.ADSError as err:
-            _LOGGER.error(err)
 
     def register_device(self, device):
         """Register a new device."""
@@ -84,24 +95,93 @@ class AdsHub:
     def add_device_notification(self, name, plc_datatype, callback):
         """Add a notification to the ADS devices."""
 
+        subscription = (name, plc_datatype, callback)
+        with self._lock:
+            self._notification_subscriptions.append(subscription)
+            if not self._register_notification(subscription):
+                self._pending_subscriptions.append(subscription)
+
+    def _register_notification(self, subscription: NotificationSubscription) -> bool:
+        """Register one notification and store its active handles."""
+        name, plc_datatype, callback = subscription
         attr = pyads.NotificationAttrib(ctypes.sizeof(plc_datatype))
 
+        try:
+            handles = self._client.add_device_notification(
+                name, attr, self._device_notification_callback
+            )
+        except pyads.ADSError as err:
+            _LOGGER.error("Error subscribing to %s: %s", name, err)
+            return False
+
+        if handles is None:
+            return False
+
+        hnotify, huser = handles
+        hnotify = int(hnotify)
+        self._notification_items[hnotify] = NotificationItem(
+            hnotify, huser, name, plc_datatype, callback
+        )
+        _LOGGER.debug("Added device notification %d for variable %s", hnotify, name)
+        return True
+
+    def _register_pending_subscriptions(self) -> None:
+        """Retry subscriptions that were not active after connecting."""
+        pending_subscriptions = self._pending_subscriptions
+        self._pending_subscriptions = []
+        for subscription in pending_subscriptions:
+            if not self._register_notification(subscription):
+                self._pending_subscriptions.append(subscription)
+
+    def _check_connection(self) -> None:
+        """Check the PLC connection and reconnect if it was interrupted."""
         with self._lock:
             try:
-                hnotify, huser = self._client.add_device_notification(
-                    name, attr, self._device_notification_callback
-                )
-            except pyads.ADSError as err:
-                _LOGGER.error("Error subscribing to %s: %s", name, err)
+                state = self._client.read_state()
+            except pyads.ADSError:
+                state = None
+
+            if state is None:
+                self._last_state = None
+                self._reconnect()
+            elif self._last_state is not None and state != self._last_state:
+                self._last_state = state
+                self._reconnect()
             else:
-                hnotify = int(hnotify)
-                self._notification_items[hnotify] = NotificationItem(
-                    hnotify, huser, name, plc_datatype, callback
+                self._last_state = state
+                self._register_pending_subscriptions()
+
+    def _reconnect(self) -> None:
+        """Reconnect to the PLC and restore its device notifications."""
+        _LOGGER.debug("ADS connection lost; reconnecting")
+        for notification_item in self._notification_items.values():
+            with suppress(pyads.ADSError):
+                self._client.del_device_notification(
+                    notification_item.hnotify, notification_item.huser
                 )
 
-                _LOGGER.debug(
-                    "Added device notification %d for variable %s", hnotify, name
-                )
+        self._notification_items.clear()
+        self._pending_subscriptions = self._notification_subscriptions.copy()
+
+        try:
+            self._client.close()
+            self._client.open()
+            state = self._client.read_state()
+            if state is None:
+                self._last_state = None
+                return
+            self._last_state = state
+        except pyads.ADSError as err:
+            self._last_state = None
+            _LOGGER.debug("ADS reconnect failed: %s", err)
+            return
+
+        self._register_pending_subscriptions()
+        _LOGGER.info("Reconnected to ADS client %s", self._client_id)
+
+    async def async_check_connection(self, hass: HomeAssistant, _now: datetime) -> None:
+        """Check the ADS connection without blocking Home Assistant."""
+        await hass.async_add_executor_job(self._check_connection)
 
     def _device_notification_callback(self, notification, name):
         """Handle device notifications."""

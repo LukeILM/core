@@ -3,6 +3,7 @@
 from typing import cast
 from unittest.mock import Mock, call, patch
 
+import pyads
 import pytest
 
 from homeassistant.components.ads.const import (
@@ -93,3 +94,36 @@ def test_entity_unique_id_is_scoped_to_client() -> None:
 
     assert default_hub.entity_unique_id("GVL.value") == "GVL.value"
     assert secondary_hub.entity_unique_id("GVL.value") == "secondary_GVL.value"
+
+
+def test_connection_reconnect_restores_notifications() -> None:
+    """Restore device notifications after the ADS client restarts."""
+    client = Mock()
+    client.add_device_notification.side_effect = [(1, 2), (3, 4)]
+    client.read_state.side_effect = [pyads.ADSError(1), pyads.ADSError(1), (5, 0)]
+    hub = AdsHub(client)
+    callback = Mock()
+
+    hub.add_device_notification("GVL.value", pyads.PLCTYPE_INT, callback)
+    hub._check_connection()
+    hub._check_connection()
+
+    assert client.close.call_count == 1
+    assert client.open.call_count == 2
+    assert client.add_device_notification.call_count == 2
+
+
+def test_connection_state_change_restores_notifications() -> None:
+    """Restore notifications when the PLC changes ADS/device state."""
+    client = Mock()
+    client.add_device_notification.side_effect = [(1, 2), (3, 4)]
+    client.read_state.side_effect = [(5, 0), (6, 0), (6, 0)]
+    hub = AdsHub(client)
+
+    hub.add_device_notification("GVL.value", pyads.PLCTYPE_INT, Mock())
+    hub._check_connection()
+    hub._check_connection()
+
+    assert client.close.call_count == 1
+    assert client.open.call_count == 2
+    assert client.add_device_notification.call_count == 2
