@@ -13,10 +13,14 @@ from homeassistant.components.sensor import (
     SensorEntity,
     SensorStateClass,
 )
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_DEVICE_CLASS, CONF_NAME, CONF_UNIT_OF_MEASUREMENT
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.entity_platform import (
+    AddConfigEntryEntitiesCallback,
+    AddEntitiesCallback,
+)
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType, StateType
 
 from .const import (
@@ -24,6 +28,7 @@ from .const import (
     CONF_ADS_FACTOR,
     CONF_ADS_TYPE,
     CONF_ADS_VAR,
+    DATA_ADS,
     STATE_KEY_STATE,
     AdsType,
 )
@@ -92,6 +97,30 @@ def setup_platform(
     )
 
     add_entities([entity])
+
+
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    async_add_entities: AddConfigEntryEntitiesCallback,
+) -> None:
+    """Set up ADS sensors selected in the config flow."""
+    ads_hub = hass.data[DATA_ADS][entry.entry_id]
+    entities = [
+        AdsSensor(
+            ads_hub,
+            symbol[CONF_ADS_VAR],
+            AdsType(symbol[CONF_ADS_TYPE]),
+            symbol[CONF_ADS_VAR],
+            None,
+            None,
+            None,
+            None,
+        )
+        for symbol in entry.data["symbols"]
+        if symbol["platform"] == "sensor"
+    ]
+    async_add_entities(entities)
 
 
 class AdsSensor(AdsEntity, SensorEntity):

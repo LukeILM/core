@@ -1,4 +1,42 @@
 {
+  "config": {
+    "abort": {
+      "already_configured": "This ADS device is already configured."
+    },
+    "error": {
+      "cannot_connect": "Unable to connect to the ADS device.",
+      "no_supported_symbols": "No supported symbols were found on the ADS device."
+    },
+    "step": {
+      "add_symbol": {
+        "menu_options": {
+          "finish": "Finish",
+          "select_symbol": "Add a symbol"
+        },
+        "title": "Configure ADS symbols"
+      },
+      "select_platform": {
+        "data": {
+          "platform": "Platform"
+        },
+        "title": "Choose an entity platform"
+      },
+      "select_symbol": {
+        "data": {
+          "adsvar": "Symbol"
+        },
+        "title": "Select a PLC symbol"
+      },
+      "user": {
+        "data": {
+          "device": "ADS net ID",
+          "ip_address": "IP address",
+          "port": "ADS port"
+        },
+        "title": "Connect to an ADS device"
+      }
+    }
+  },
   "services": {
     "write_data_by_name": {
       "description": "Write a value to the connected ADS device.",

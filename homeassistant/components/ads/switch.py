@@ -9,13 +9,17 @@ from homeassistant.components.switch import (
     PLATFORM_SCHEMA as SWITCH_PLATFORM_SCHEMA,
     SwitchEntity,
 )
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_NAME
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.entity_platform import (
+    AddConfigEntryEntitiesCallback,
+    AddEntitiesCallback,
+)
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 
-from .const import CONF_ADS_VAR, STATE_KEY_STATE
+from .const import CONF_ADS_VAR, DATA_ADS, STATE_KEY_STATE
 from .entity import ADS_CLIENT_SCHEMA, AdsEntity, get_ads_hub
 
 DEFAULT_NAME = "ADS Switch"
@@ -41,6 +45,22 @@ def setup_platform(
     ads_var: str = config[CONF_ADS_VAR]
 
     add_entities([AdsSwitch(ads_hub, name, ads_var)])
+
+
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    async_add_entities: AddConfigEntryEntitiesCallback,
+) -> None:
+    """Set up ADS switches selected in the config flow."""
+    ads_hub = hass.data[DATA_ADS][entry.entry_id]
+    async_add_entities(
+        [
+            AdsSwitch(ads_hub, symbol[CONF_ADS_VAR], symbol[CONF_ADS_VAR])
+            for symbol in entry.data["symbols"]
+            if symbol["platform"] == "switch"
+        ]
+    )
 
 
 class AdsSwitch(AdsEntity, SwitchEntity):

@@ -15,13 +15,17 @@ from homeassistant.components.light import (
     LightEntity,
     filter_supported_color_modes,
 )
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_NAME
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.entity_platform import (
+    AddConfigEntryEntitiesCallback,
+    AddEntitiesCallback,
+)
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 
-from .const import CONF_ADS_VAR, STATE_KEY_STATE
+from .const import CONF_ADS_VAR, DATA_ADS, STATE_KEY_STATE
 from .entity import ADS_CLIENT_SCHEMA, AdsEntity, get_ads_hub
 from .hub import AdsHub
 
@@ -72,6 +76,30 @@ def setup_platform(
                 max_color_temp_kelvin,
                 name,
             )
+        ]
+    )
+
+
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    async_add_entities: AddConfigEntryEntitiesCallback,
+) -> None:
+    """Set up ADS lights selected in the config flow."""
+    ads_hub = hass.data[DATA_ADS][entry.entry_id]
+    async_add_entities(
+        [
+            AdsLight(
+                ads_hub,
+                symbol[CONF_ADS_VAR],
+                None,
+                None,
+                None,
+                None,
+                symbol[CONF_ADS_VAR],
+            )
+            for symbol in entry.data["symbols"]
+            if symbol["platform"] == "light"
         ]
     )
 

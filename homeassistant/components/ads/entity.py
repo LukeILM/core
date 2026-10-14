@@ -18,7 +18,9 @@ from .hub import AdsHub
 
 _LOGGER = logging.getLogger(__name__)
 
-ADS_CLIENT_SCHEMA = {probatio.Optional(CONF_ADS_CLIENT): cv.slug}
+ADS_CLIENT_SCHEMA = {
+    probatio.Optional(CONF_ADS_CLIENT): probatio.All(cv.string, probatio.Length(min=1))
+}
 
 
 def get_ads_hub(hass: HomeAssistant, config: ConfigType) -> AdsHub:
